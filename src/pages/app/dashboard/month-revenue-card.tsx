@@ -1,8 +1,15 @@
+import { useQuery } from '@tanstack/react-query'
 import { DollarSign } from 'lucide-react'
 
+import { getMonthRevenue } from '@/api/get-month-revenue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function MonthRevenueCard() {
+  const { data: monthRevenue } = useQuery({
+    queryFn: getMonthRevenue,
+    queryKey: ['metrics', 'month-revenue'],
+  })
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -14,12 +21,32 @@ export function MonthRevenueCard() {
       </CardHeader>
 
       <CardContent className="space-y-1">
-        <span className="text-2xl font-bold tracking-tight">R$ 6.791,00</span>
+        {!!monthRevenue && (
+          <>
+            <span className="text-2xl font-bold tracking-tight">
+              {(monthRevenue.receipt / 100).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+              })}
+            </span>
 
-        <p className="text-xs text-muted-foreground">
-          <span className="text-emerald-600 dark:text-emerald-400">+2%</span> em
-          relação ao mês passado
-        </p>
+            {monthRevenue.diffFromLastMonth >= 0 ? (
+              <p className="text-xs text-muted-foreground">
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  +{monthRevenue.diffFromLastMonth.toLocaleString('pt-BR')}%
+                </span>{' '}
+                relação ao mês passado
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                <span className="text-rose-600 dark:text-rose-400">
+                  {monthRevenue.diffFromLastMonth.toLocaleString('pt-BR')}%
+                </span>{' '}
+                relação ao mês passado
+              </p>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   )
