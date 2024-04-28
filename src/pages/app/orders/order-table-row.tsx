@@ -1,8 +1,12 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowRight, Search, X } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
+import { cancelOrder } from '@/api/cancel-order'
+import { GetOrdersResponse } from '@/api/get-orders'
 import { OrderStatus } from '@/components/order-status'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogTrigger } from '@/components/ui/dialog'
@@ -22,6 +26,41 @@ interface OrderTableRowProps {
 
 export function OrderTableRow({ order }: OrderTableRowProps) {
   const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false)
+
+  const queryClient = useQueryClient()
+
+  const { mutate: cancelOrderFn, isPending: isCanceling } = useMutation({
+    mutationFn: cancelOrder,
+    onSuccess: (_, { orderId }) => {
+      const ordersListCache = queryClient.getQueriesData<GetOrdersResponse>({
+        queryKey: ['orders'],
+      })
+
+      ordersListCache.forEach(([cacheKey, cacheData]) => {
+        if (!cacheData) {
+          return
+        }
+
+        queryClient.setQueryData<GetOrdersResponse>(cacheKey, {
+          ...cacheData,
+          orders: cacheData.orders.map((order) => {
+            if (order.orderId === orderId) {
+              return { ...order, status: 'canceled' }
+            }
+
+            return order
+          }),
+        })
+      })
+
+      toast.success('Pedido cancelado com sucesso.')
+    },
+    onError: () => {
+      toast.error('Ocorreu uma falha ao cancelar este pedido.')
+    },
+  })
+
+  const isNotAllowedToCancel = !['pending', 'processing'].includes(order.status)
 
   return (
     <TableRow>
@@ -70,7 +109,12 @@ export function OrderTableRow({ order }: OrderTableRowProps) {
       </TableCell>
 
       <TableCell>
-        <Button variant="ghost" size="xs">
+        <Button
+          variant="ghost"
+          size="xs"
+          disabled={isNotAllowedToCancel || isCanceling}
+          onClick={() => cancelOrderFn({ orderId: order.orderId })}
+        >
           <X className="mr-2 h-3 w-3" />
           Cancelar
         </Button>
